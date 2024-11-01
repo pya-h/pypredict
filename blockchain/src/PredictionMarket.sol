@@ -50,7 +50,7 @@ contract PredictionMarket {
      */
     function getSpecificOutcomeStatistics(
         Outcome outcome
-    ) external view returns (OutcomeBetStats memory) {
+    ) public view returns (OutcomeBetStats memory) {
         OutcomeBetStats memory stats = OutcomeBetStats(bets[outcome].length, 0);
 
         for (uint256 i = 0; i < bets[outcome].length; i++) {
@@ -65,7 +65,7 @@ contract PredictionMarket {
      */
     function getGamblerBinaryBetStatistics(
         address gambler
-    ) external view returns (GamblerBetsStatus memory) {
+    ) public view returns (GamblerBetsStatus memory) {
         GamblerBetsStatus memory stats = GamblerBetsStatus(gambler, 0, 0);
 
         (uint256 minLength, Outcome popular) = bets[Outcome.Alpha].length <=
@@ -103,7 +103,7 @@ contract PredictionMarket {
     function getGamblerSpecificOutcomeBetsStatistics(
         address gambler,
         Outcome outcome
-    ) external view returns (GamblerBetsStatus memory) {
+    ) public view returns (GamblerBetsStatus memory) {
         GamblerBetsStatus memory stats = GamblerBetsStatus(gambler, 0, 0);
 
         for (uint256 i = 0; i < bets[outcome].length; i++) {
@@ -122,7 +122,7 @@ contract PredictionMarket {
      */
     function getGamblerGeneralStatistics(
         address gambler
-    ) external view returns (GamblerBetsStatus memory) {
+    ) public view returns (GamblerBetsStatus memory) {
         GamblerBetsStatus memory stats = GamblerBetsStatus(gambler, 0, 0);
 
         for (uint256 j = 0; j < allOutcomes.length; j++) {
@@ -134,5 +134,34 @@ contract PredictionMarket {
             }
         }
         return stats;
+    }
+
+    function withdraw() external {
+        require(finishedAt > 0, "Prediction is not finished yet...");
+        uint256 gains = 0;
+        uint256 gamblerTrueInvestments = 0;
+        uint256 totalTrueOutcomeInvestments = 0;
+        uint256 totalFalseOutcomeInvestments = 0;
+        for(uint i = 0; i < allOutcomes.length; i++) {
+            Outcome outcome = allOutcomes[i];
+            if(trueness[outcome] > 0) {
+                uint256 investedOnOutcome = getSpecificOutcomeStatistics(outcome).totalAmount;
+                GamblerBetsStatus memory betStats = getGamblerSpecificOutcomeBetsStatistics(msg.sender, outcome);
+                if(betStats.investment > 0) {
+                    gamblerTrueInvestments += betStats.investment;
+                    totalTrueOutcomeInvestments += investedOnOutcome;
+                    gains += (trueness[outcome] / 100) * betStats.investment / investedOnOutcome;
+                } else {
+                    totalFalseOutcomeInvestments += investedOnOutcome;
+                }
+            }
+        }
+        require(gamblerTrueInvestments > 0, "You have not invested on a correct outcome.");
+        gains += totalFalseOutcomeInvestments * gamblerTrueInvestments / totalTrueOutcomeInvestments;
+        (bool success, ) = payable(msg.sender).call{value: gains + gamblerTrueInvestments}("");
+        require(success, "Withdrawal failed.");
+        // FIXME: Checkout the math logic here.
+
+        // TODO: Remove all user bet instances from bets array on successful withdrawal.
     }
 }
