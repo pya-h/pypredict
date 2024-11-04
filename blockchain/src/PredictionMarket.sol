@@ -12,6 +12,7 @@ contract PredictionMarket {
         uint256 amount;
         // address     token;   //TODO:
         Outcome on;
+        bool withdrew;
     }
 
     struct OutcomeBetStats {
@@ -41,7 +42,9 @@ contract PredictionMarket {
      */
     function betOn(Outcome choice) external payable {
         require(finishedAt > 0, "Market closed.");
-        bets[choice].push(Bet(++idOffset, msg.sender, msg.value, choice));
+        bets[choice].push(
+            Bet(++idOffset, msg.sender, msg.value, choice, false)
+        );
     }
 
     /**
@@ -107,7 +110,7 @@ contract PredictionMarket {
         GamblerBetsStatus memory stats = GamblerBetsStatus(gambler, 0, 0);
 
         for (uint256 i = 0; i < bets[outcome].length; i++) {
-            if (bets[outcome][i].gambler == gambler) {
+            if (bets[outcome][i].gambler == gambler && !bets[outcome][i].withdrew) {
                 stats.count++;
                 stats.investment += bets[outcome][i].amount;
             }
@@ -136,32 +139,77 @@ contract PredictionMarket {
         return stats;
     }
 
+    function markBetsAsWithdrew(address gambler) private {
+        for (uint256 j = 0; j < allOutcomes.length; j++) {
+            for (uint256 i = 0; i < bets[allOutcomes[j]].length; i++) {
+                if (
+                    bets[allOutcomes[j]][i].gambler == gambler &&
+                    !bets[allOutcomes[j]][i].withdrew
+                ) {
+                    bets[allOutcomes[j]][i].withdrew = true;
+                }
+            }
+        }
+    }
+
     function withdraw() external {
         require(finishedAt > 0, "Prediction is not finished yet...");
         uint256 gains = 0;
         uint256 gamblerTrueInvestments = 0;
         uint256 totalTrueOutcomeInvestments = 0;
         uint256 totalFalseOutcomeInvestments = 0;
-        for(uint i = 0; i < allOutcomes.length; i++) {
+        for (uint i = 0; i < allOutcomes.length; i++) {
             Outcome outcome = allOutcomes[i];
-            if(trueness[outcome] > 0) {
-                uint256 investedOnOutcome = getSpecificOutcomeStatistics(outcome).totalAmount;
-                GamblerBetsStatus memory betStats = getGamblerSpecificOutcomeBetsStatistics(msg.sender, outcome);
-                if(betStats.investment > 0) {
+            if (trueness[outcome] > 0) {
+                uint256 investedOnOutcome = getSpecificOutcomeStatistics(
+                    outcome
+                ).totalAmount;
+                GamblerBetsStatus
+                    memory betStats = getGamblerSpecificOutcomeBetsStatistics(
+                        msg.sender,
+                        outcome
+                    );
+                if (betStats.investment > 0) {
                     gamblerTrueInvestments += betStats.investment;
                     totalTrueOutcomeInvestments += investedOnOutcome;
-                    gains += (trueness[outcome] / 100) * betStats.investment / investedOnOutcome;
+                    gains +=
+                        ((trueness[outcome] / 100) * betStats.investment) /
+                        investedOnOutcome;
                 } else {
                     totalFalseOutcomeInvestments += investedOnOutcome;
                 }
             }
         }
-        require(gamblerTrueInvestments > 0, "You have not invested on a correct outcome.");
-        gains += totalFalseOutcomeInvestments * gamblerTrueInvestments / totalTrueOutcomeInvestments;
-        (bool success, ) = payable(msg.sender).call{value: gains + gamblerTrueInvestments}("");
+        require(
+            gamblerTrueInvestments > 0,
+            "You have not invested on a correct outcome."
+        );
+        gains +=
+            (totalFalseOutcomeInvestments * gamblerTrueInvestments) /
+            totalTrueOutcomeInvestments;
+        (bool success, ) = payable(msg.sender).call{
+            value: gains + gamblerTrueInvestments
+        }("");
         require(success, "Withdrawal failed.");
         // FIXME: Checkout the math logic here.
 
-        // TODO: Remove all user bet instances from bets array on successful withdrawal.
+        markBetsAsWithdrew(msg.sender);
+    }
+
+    function resolve(uint8[] memory outcomeTrueness) external {
+        require(msg.sender == oracle, 'Only oracle is allowed to resolve this market.');
+        require(finishedAt == 0, 'Market has been resolved already.');
+        require(outcomeTrueness.length == allOutcomes.length, 'Oracle outcome set does not match with market outcomes.');
+        uint outcomesSum = 0 ;
+        for(uint i = 0; i < outcomeTrueness.length; i++) {
+            outcomesSum += outcomeTrueness[i];
+        }
+        require(outcomesSum == 100, 'Outcomes trueness array is invalid.');
+
+        for(uint i = 0; i < outcomeTrueness.length; i++) {
+            trueness[Outcome(i)] = outcomeTrueness[i];
+        }
+
+        finishedAt = block.timestamp;
     }
 }
