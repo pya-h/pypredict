@@ -26,22 +26,42 @@ contract PredictionMarket {
         uint256 investment;
     }
 
-    Outcome[] public allOutcomes = [Outcome.Alpha, Outcome.Beta];
+    Outcome[] private allOutcomes = [Outcome.Alpha, Outcome.Beta];
     address oracle;
-    uint256 public finishedAt; // epoch time
-    mapping(Outcome => uint8) public trueness;
-    mapping(Outcome => Bet[]) public bets;
+    uint256 private finishedAt; // epoch time
+    mapping(Outcome => uint8) private trueness;
+    mapping(Outcome => Bet[]) private bets;
 
     constructor(address _oracleAddress) {
         oracle = _oracleAddress;
+        finishedAt = 0;
     }
 
+    function isOpen() external view returns (bool) {
+        return finishedAt == 0;
+    }
+
+    function numberOfBetsOn(Outcome outcome) external view returns (uint256) {
+        return bets[outcome].length;
+    }
+
+    function numberOfTotalBets() external view returns (uint256) {
+        uint256 count = 0;
+        for(uint i = 0; i < allOutcomes.length; i++) {
+            count += bets[allOutcomes[i]].length;
+        }
+        return count;
+    }
+
+    function numberOfOutcomes() public view returns (uint256) {
+        return allOutcomes.length;
+    }
     /**
      * Allows a gambler to bet specific amount of ethers on an outcome
      * @param choice: Outcome.Alpha | Outcome.Beta
      */
     function betOn(Outcome choice) external payable {
-        require(finishedAt > 0, "Market closed.");
+        require(finishedAt == 0, "Market closed.");
         bets[choice].push(
             Bet(++idOffset, msg.sender, msg.value, choice, false)
         );
