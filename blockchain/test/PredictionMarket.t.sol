@@ -177,6 +177,10 @@ contract PredictionMarketTest is Test {
         uint256[] memory alphaBets = new uint256[](gamblers.length);
         uint256[] memory betaBets = new uint256[](gamblers.length);
 
+        for (uint16 i = 0; i < gamblers.length; i++) {
+            alphaBets[i] = 0;
+            betaBets[i] = 0;
+        }
         for (uint8 j = 0; j < eachgamblerBets; j++) {
             for (uint16 i = 0; i < gamblers.length; i++) {
                 PredictionMarket.Outcome choice = PredictionMarket.Outcome(

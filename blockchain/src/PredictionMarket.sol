@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT 
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
 contract PredictionMarket {
@@ -48,7 +48,7 @@ contract PredictionMarket {
 
     function numberOfTotalBets() external view returns (uint256) {
         uint256 count = 0;
-        for(uint i = 0; i < allOutcomes.length; i++) {
+        for (uint i = 0; i < allOutcomes.length; i++) {
             count += bets[allOutcomes[i]].length;
         }
         return count;
@@ -57,6 +57,7 @@ contract PredictionMarket {
     function numberOfOutcomes() public view returns (uint256) {
         return allOutcomes.length;
     }
+
     /**
      * Allows a gambler to bet specific amount of ethers on an outcome
      * @param choice: Outcome.Alpha | Outcome.Beta
@@ -131,7 +132,10 @@ contract PredictionMarket {
         GamblerBetsStatus memory stats = GamblerBetsStatus(gambler, 0, 0);
 
         for (uint256 i = 0; i < bets[outcome].length; i++) {
-            if (bets[outcome][i].gambler == gambler && !bets[outcome][i].withdrew) {
+            if (
+                bets[outcome][i].gambler == gambler &&
+                !bets[outcome][i].withdrew
+            ) {
                 stats.count++;
                 stats.investment += bets[outcome][i].amount;
             }
@@ -151,7 +155,10 @@ contract PredictionMarket {
 
         for (uint256 j = 0; j < allOutcomes.length; j++) {
             for (uint256 i = 0; i < bets[allOutcomes[j]].length; i++) {
-                if (bets[allOutcomes[j]][i].gambler == gambler && !bets[allOutcomes[j]][i].withdrew) {
+                if (
+                    bets[allOutcomes[j]][i].gambler == gambler &&
+                    !bets[allOutcomes[j]][i].withdrew
+                ) {
                     stats.count++;
                     stats.investment += bets[allOutcomes[j]][i].amount;
                 }
@@ -181,24 +188,22 @@ contract PredictionMarket {
         uint256 totalFalseOutcomeInvestments = 0;
         for (uint i = 0; i < allOutcomes.length; i++) {
             Outcome outcome = allOutcomes[i];
+            uint256 investedOnOutcome = getSpecificOutcomeStatistics(outcome)
+                .totalAmount;
             if (trueness[outcome] > 0) {
-                uint256 investedOnOutcome = getSpecificOutcomeStatistics(
-                    outcome
-                ).totalAmount;
+                totalTrueOutcomeInvestments += investedOnOutcome;
                 GamblerBetsStatus
                     memory betStats = getGamblerSpecificOutcomeBetsStatistics(
                         msg.sender,
                         outcome
                     );
                 if (betStats.investment > 0) {
-                    gamblerTrueInvestments += betStats.investment;
-                    totalTrueOutcomeInvestments += investedOnOutcome;
-                    gains +=
-                        ((trueness[outcome] / 100) * betStats.investment) /
-                        investedOnOutcome;
-                } else {
-                    totalFalseOutcomeInvestments += investedOnOutcome;
+                    gamblerTrueInvestments +=
+                        (trueness[outcome] * betStats.investment) /
+                        100;
                 }
+            } else {
+                totalFalseOutcomeInvestments += investedOnOutcome;
             }
         }
         require(
@@ -218,16 +223,22 @@ contract PredictionMarket {
     }
 
     function resolve(uint8[] memory outcomeTrueness) external {
-        require(msg.sender == oracle, 'Only oracle is allowed to resolve this market.');
-        require(finishedAt == 0, 'Market has been resolved already.');
-        require(outcomeTrueness.length == allOutcomes.length, 'Oracle outcome set does not match with market outcomes.');
-        uint outcomesSum = 0 ;
-        for(uint i = 0; i < outcomeTrueness.length; i++) {
+        require(
+            msg.sender == oracle,
+            "Only oracle is allowed to resolve this market."
+        );
+        require(finishedAt == 0, "Market has been resolved already.");
+        require(
+            outcomeTrueness.length == allOutcomes.length,
+            "Oracle outcome set does not match with market outcomes."
+        );
+        uint outcomesSum = 0;
+        for (uint i = 0; i < outcomeTrueness.length; i++) {
             outcomesSum += outcomeTrueness[i];
         }
-        require(outcomesSum == 100, 'Outcomes trueness array is invalid.');
+        require(outcomesSum == 100, "Outcomes trueness array is invalid.");
 
-        for(uint i = 0; i < outcomeTrueness.length; i++) {
+        for (uint i = 0; i < outcomeTrueness.length; i++) {
             trueness[Outcome(i)] = outcomeTrueness[i];
         }
 
@@ -235,7 +246,7 @@ contract PredictionMarket {
     }
 
     function getOutcomeTrueness(Outcome outcome) public view returns (uint8) {
-        require(finishedAt > 0, 'Market due not reached yet.');
+        require(finishedAt > 0, "Market due not reached yet.");
         return trueness[outcome];
     }
 }
