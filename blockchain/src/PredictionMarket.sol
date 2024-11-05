@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT 
 pragma solidity 0.8.28;
 
 contract PredictionMarket {
@@ -61,7 +62,7 @@ contract PredictionMarket {
      * @param choice: Outcome.Alpha | Outcome.Beta
      */
     function betOn(Outcome choice) external payable {
-        require(finishedAt == 0, "Market closed.");
+        require(finishedAt == 0, "Market is closed.");
         bets[choice].push(
             Bet(++idOffset, msg.sender, msg.value, choice, false)
         );
@@ -150,9 +151,9 @@ contract PredictionMarket {
 
         for (uint256 j = 0; j < allOutcomes.length; j++) {
             for (uint256 i = 0; i < bets[allOutcomes[j]].length; i++) {
-                if (bets[allOutcomes[j]][i].gambler == gambler) {
+                if (bets[allOutcomes[j]][i].gambler == gambler && !bets[allOutcomes[j]][i].withdrew) {
                     stats.count++;
-                    stats.investment += bets[allOutcomes[i]][i].amount;
+                    stats.investment += bets[allOutcomes[j]][i].amount;
                 }
             }
         }
