@@ -233,4 +233,9 @@ contract PredictionMarket {
 
         finishedAt = block.timestamp;
     }
+
+    function getOutcomeTrueness(Outcome outcome) public view returns (uint8) {
+        require(finishedAt > 0, 'Market due not reached yet.');
+        return trueness[outcome];
+    }
 }
