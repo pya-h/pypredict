@@ -37,3 +37,14 @@ contract DeployScript is Script {
         }
     }
 }
+
+
+contract ResolveScript is Script {
+    function setUp() public {}
+
+    // PredicitionMarket private market;
+
+    function run() public {
+        uint deployerPrivate = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
+    }
+}
