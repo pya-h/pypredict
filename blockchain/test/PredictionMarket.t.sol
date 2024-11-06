@@ -136,6 +136,10 @@ contract PredictionMarketTest is Test {
             market.getOutcomeTrueness(PredictionMarket.Outcome.Beta),
             100 - randomTrueness
         );
+
+        (PredictionMarket.Outcome firstChance, PredictionMarket.Outcome lastChance) = market.result();  // Solidity Destruction example
+        assertEq(uint8(firstChance), uint8(randomTrueness >= 50 ? PredictionMarket.Outcome.Alpha : PredictionMarket.Outcome.Beta));
+        assertEq(uint8(lastChance), uint8(randomTrueness < 50 ? PredictionMarket.Outcome.Alpha : PredictionMarket.Outcome.Beta));
     }
 
     function test_resolveByAnotherUser() public {

@@ -32,6 +32,13 @@ contract PredictionMarket {
     uint256 private finishedAt; // epoch time
     mapping(Outcome => uint8) private trueness;
     mapping(Outcome => Bet[]) private bets;
+    
+    struct Result {
+        Outcome firstChance;
+        Outcome lastChance;
+    }
+
+    Result public result; // this is just for reading; [just for practice purposes].
 
     constructor(address _oracleAddress) {
         oracle = _oracleAddress;
@@ -248,12 +255,23 @@ contract PredictionMarket {
             outcomesSum += outcomeTrueness[i];
         }
         require(outcomesSum == 100, "Outcomes trueness array is invalid.");
+        
 
         for (uint i = 0; i < outcomeTrueness.length; i++) {
             trueness[Outcome(i)] = outcomeTrueness[i];
         }
 
         finishedAt = block.timestamp;
+
+        result.firstChance = allOutcomes[0];
+        result.lastChance = allOutcomes[0];
+
+        for(uint i = 0; i < allOutcomes.length; i++) {
+            if(trueness[allOutcomes[i]] > trueness[result.firstChance])
+                result.firstChance = allOutcomes[i];
+            if(trueness[allOutcomes[i]] < trueness[result.lastChance])
+                result.lastChance = allOutcomes[i];
+        }    
     }
 
     function getOutcomeTrueness(Outcome outcome) public view returns (uint8) {
