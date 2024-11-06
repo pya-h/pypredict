@@ -152,7 +152,6 @@ contract PredictionMarket {
         address gambler
     ) public view returns (GamblerBetsStatus memory) {
         GamblerBetsStatus memory stats = GamblerBetsStatus(gambler, 0, 0);
-
         for (uint256 j = 0; j < allOutcomes.length; j++) {
             for (uint256 i = 0; i < bets[allOutcomes[j]].length; i++) {
                 if (
@@ -180,8 +179,23 @@ contract PredictionMarket {
         }
     }
 
+    function hasPlacedABet(address gambler) public view returns (bool) {
+        for (uint256 j = 0; j < allOutcomes.length; j++) {
+            for (uint256 i = 0; i < bets[allOutcomes[j]].length; i++) {
+                if (
+                    bets[allOutcomes[j]][i].gambler == gambler &&
+                    !bets[allOutcomes[j]][i].withdrew
+                ) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     function withdraw() external {
-        require(finishedAt > 0, "Prediction is not finished yet...");
+        require(finishedAt > 0, "Market is still open.");
+        require(hasPlacedABet(msg.sender) == true, 'You have not placed any bet yet.');
         uint256 gains = 0;
         uint256 gamblerTrueInvestments = 0;
         uint256 totalTrueOutcomeInvestments = 0;
@@ -206,19 +220,16 @@ contract PredictionMarket {
                 totalFalseOutcomeInvestments += investedOnOutcome;
             }
         }
-        require(
-            gamblerTrueInvestments > 0,
-            "You have not invested on a correct outcome."
-        );
-        gains +=
-            (totalFalseOutcomeInvestments * gamblerTrueInvestments) /
-            totalTrueOutcomeInvestments;
-        (bool success, ) = payable(msg.sender).call{
-            value: gains + gamblerTrueInvestments
-        }("");
-        require(success, "Withdrawal failed.");
-        // FIXME: Checkout the math logic here.
 
+        if (gamblerTrueInvestments > 0) {
+            gains +=
+                (totalFalseOutcomeInvestments * gamblerTrueInvestments) /
+                totalTrueOutcomeInvestments;
+            (bool success, ) = payable(msg.sender).call{
+                value: gains + gamblerTrueInvestments
+            }("");
+            require(success == true, "Withdrawal failed.");
+        }
         markBetsAsWithdrew(msg.sender);
     }
 

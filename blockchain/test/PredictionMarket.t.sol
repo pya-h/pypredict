@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
+import {console} from 'forge-std/console.sol';
 import {PredictionMarket} from "../src/PredictionMarket.sol";
 
 contract PredictionMarketTest is Test {
@@ -15,7 +16,7 @@ contract PredictionMarketTest is Test {
     function setUp() public {
         market = new PredictionMarket(oracle);
         for (uint160 i = 1; i <= GAMBLERS_COUNT; i++) {
-            address g = address(i);
+            address g = address(i + 10);
             gamblers.push(g);
             deal(g, GAMBLER_INITIAL_ETHERS * (1 ether));
         }
@@ -41,7 +42,8 @@ contract PredictionMarketTest is Test {
             PredictionMarket.GamblerBetsStatus
                 memory initialGamblerGeneralStats = market
                     .getGamblerGeneralStatistics(gamblers[i]);
-            uint investAmount = (((block.timestamp * (i + 1)) % maxInvestment) + 1) * 1 ether;
+            uint investAmount = (((block.timestamp * (i + 1)) % maxInvestment) +
+                1) * 1 ether;
             vm.prank(gamblers[i]);
             market.betOn{value: investAmount}(choice);
 
@@ -170,13 +172,14 @@ contract PredictionMarketTest is Test {
     }
 
     function test_withdraw() public {
-        uint outcomesCount = market.numberOfOutcomes();
+        uint256 outcomesCount = market.numberOfOutcomes();
         uint8 eachgamblerBets = uint8(block.timestamp % 3) + 2;
-        uint maxInvestment = GAMBLER_INITIAL_ETHERS / eachgamblerBets;
+        uint256 maxInvestment = GAMBLER_INITIAL_ETHERS / eachgamblerBets;
 
         uint256[] memory alphaBets = new uint256[](gamblers.length);
         uint256[] memory betaBets = new uint256[](gamblers.length);
-
+        uint256 alphaBetsSum = 0;
+        uint256 betaBetsSum = 0;
         for (uint16 i = 0; i < gamblers.length; i++) {
             alphaBets[i] = 0;
             betaBets[i] = 0;
@@ -186,15 +189,66 @@ contract PredictionMarketTest is Test {
                 PredictionMarket.Outcome choice = PredictionMarket.Outcome(
                     (block.timestamp * i) % outcomesCount
                 );
-                uint investAmount = (((block.timestamp * (i + 1)) % maxInvestment) + 1) * 1 ether;
+                uint256 investAmount = (((block.timestamp * (i + 1)) %
+                    maxInvestment) + 1) * 1 ether;
                 vm.prank(gamblers[i]);
                 market.betOn{value: investAmount}(choice);
                 if (choice == PredictionMarket.Outcome.Alpha) {
+                    alphaBetsSum += investAmount;
                     alphaBets[i] += investAmount;
                 } else {
+                    betaBetsSum += investAmount;
                     betaBets[i] += investAmount;
                 }
             }
         }
+        uint8 alpha = uint8(block.timestamp % 2);
+        doResolve(oracle, alpha * 100, (1 - alpha) * 100);
+        uint256 awards = 0;
+        for(uint256 i = 0; i < gamblers.length; i++) {
+            uint256 initialBalance = gamblers[i].balance;
+            uint256 gain = 0;
+
+            if(alpha == 1) {
+                gain = alphaBets[i] + uint256(alphaBets[i] * betaBetsSum / alphaBetsSum);
+            } else {
+                gain = betaBets[i] + uint256(betaBets[i] * alphaBetsSum / betaBetsSum);
+            }
+
+            vm.prank(gamblers[i]);
+            market.withdraw();
+
+            assertEq(gamblers[i].balance, initialBalance + gain);
+            awards += gain;
+
+            PredictionMarket.GamblerBetsStatus memory stats = market.getGamblerGeneralStatistics(gamblers[i]);
+            assertEq(stats.count, 0);
+            assertEq(stats.investment, 0);
+        }
+        uint256 marketLeftCharge = address(market).balance;
+        assertLt(marketLeftCharge, 10); // It's natural to have some left offs due to division in solidity; but it needs to be small
+        assertEq(alphaBetsSum + betaBetsSum, awards + marketLeftCharge);
     }
+
+    function test_withdrawOnNoBet() public {
+        doResolve(oracle, 100, 0);
+        for (uint16 i = 0; i < gamblers.length; i++) {
+            vm.expectRevert('You have not placed any bet yet.');
+            vm.prank(gamblers[i]);
+            market.withdraw();
+        }
+    }
+
+    function test_withdrawOnMarketStillOpen() public {
+        for (uint16 i = 0; i < gamblers.length; i++) {
+            // place at least one bet to do not encounter 'no bet' error.
+            vm.prank(gamblers[i]);
+            market.betOn{value: 1 ether}(PredictionMarket.Outcome.Alpha);
+
+            vm.expectRevert('Market is still open.');
+            vm.prank(gamblers[i]);
+            market.withdraw();
+        }
+    }
+
 }
