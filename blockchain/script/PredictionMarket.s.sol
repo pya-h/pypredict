@@ -41,10 +41,15 @@ contract DeployScript is Script {
 
 contract ResolveScript is Script {
     function setUp() public {}
-
-    // PredicitionMarket private market;
-
     function run() public {
-        uint deployerPrivate = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
+        address predictionMarketContractAddress = 0x8464135c8F25Da09e49BC8782676a84730C318bC;
+        uint deployerPrivateKey = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
+        PredictionMarket market = PredictionMarket(predictionMarketContractAddress);
+        vm.startBroadcast(deployerPrivateKey);
+        uint8[] memory trueness = new uint8[](2);
+        trueness[0] = 100;
+        trueness[1] = 0;
+        market.resolve(trueness);
+        vm.stopBroadcast();
     }
 }
