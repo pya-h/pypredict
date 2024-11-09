@@ -1,0 +1,7 @@
+{
+    "pmContractAddress": "0x123",
+    "pmContractABI": [
+        "function betOn(Outcome choice) external payable",
+        "function withdraw() external"
+    ]
+}
